@@ -1,0 +1,94 @@
+<!DOCTYPE html>
+<html lang="bn">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="robots" content="noindex">
+<title>অ্যাডমিন প্যানেল</title>
+<style>
+@font-face{font-family:"SolaimanLipi";src:url("fonts/SolaimanLipi.ttf") format("truetype");font-display:swap}
+:root{--g:#0b6b4b;--r:#d6322e;--line:#dde3e8;--ink:#14202b;--mut:#5d6b78}
+*{box-sizing:border-box;margin:0}
+body{font-family:"SolaimanLipi","Noto Sans Bengali","Kalpurush","Nirmala UI",sans-serif;background:#f4f6f8;color:var(--ink);line-height:1.6;font-size:16px}
+button,input,select,textarea{font:inherit}
+:focus-visible{outline:3px solid var(--g);outline-offset:2px}
+header{background:var(--g);color:#fff;padding:12px 16px;display:flex;justify-content:space-between;align-items:center;gap:8px}
+header a{color:#fff}
+.box{background:#fff;border:1px solid var(--line);border-radius:6px;padding:16px}
+.login{max-width:380px;margin:60px auto;padding:0 16px}
+.login input{width:100%;margin:10px 0}
+input,select,textarea{width:100%;padding:9px 12px;border:1px solid #c5ced6;border-radius:4px;background:#fff}
+label{display:block;margin-top:10px;font-size:15px;color:var(--mut)}
+.btn{background:var(--g);color:#fff;border:0;padding:10px 18px;border-radius:4px;cursor:pointer}
+.btn.l{background:#fff;color:var(--ink);border:1px solid #c5ced6}
+.btn.d{background:var(--r)}
+.btn:disabled{opacity:.6;cursor:wait}
+.grid{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1.2fr);gap:18px;padding:16px;max-width:1200px;margin:auto}
+.it{display:flex;justify-content:space-between;gap:8px;align-items:center;padding:10px 0;border-bottom:1px solid var(--line)}
+.it span{min-width:0}.it small{color:var(--mut);display:block}
+.it .a{display:flex;gap:6px;flex:none}
+.it .a button{padding:6px 12px}
+.tg{font-size:13px;padding:0 8px;border-radius:3px;background:#e8eef2;margin-left:6px}.tg.p{background:#d8efe5;color:var(--g)}
+#toast{position:fixed;left:50%;bottom:20px;transform:translateX(-50%);background:var(--ink);color:#fff;padding:10px 18px;border-radius:6px;display:none;max-width:90vw;z-index:9}
+.err{color:var(--r);min-height:1.6em}
+.hid{display:none!important}
+@media(max-width:800px){.grid{grid-template-columns:1fr}}
+</style>
+</head>
+<body>
+<div id="lg" class="login"><div class="box"><h2>অ্যাডমিন লগইন</h2><input id="pw" type="password" placeholder="পাসওয়ার্ড" aria-label="পাসওয়ার্ড" autocomplete="current-password"><p class="err" id="le"></p><button class="btn" id="lb">লগইন করুন</button></div></div>
+<div id="pn" class="hid">
+<header><b>অ্যাডমিন প্যানেল</b><span><a href="index.html">সাইট দেখুন</a> · <a href="#" id="out">লগআউট</a></span></header>
+<div class="grid">
+<section class="box"><div style="display:flex;justify-content:space-between;align-items:center"><h3>সব খবর</h3><button class="btn" id="nw">নতুন খবর</button></div><div id="ls"></div></section>
+<section class="box"><h3 id="ft">নতুন খবর যোগ করুন</h3>
+<label for="t">শিরোনাম *</label><input id="t">
+<label for="c">বিভাগ</label><input id="c" placeholder="যেমন: জাতীয়, খেলা">
+<label for="a">লেখক</label><input id="a">
+<label for="i">ছবির লিংক (URL)</label><input id="i" type="url" placeholder="https://...">
+<label for="s">সারসংক্ষেপ</label><textarea id="s" rows="2"></textarea>
+<label for="b">বিস্তারিত *</label><textarea id="b" rows="9"></textarea>
+<label for="st">অবস্থা</label><select id="st"><option value="published">প্রকাশিত</option><option value="draft">খসড়া</option></select>
+<p style="margin-top:14px"><button class="btn" id="sv">খবর সংরক্ষণ করুন</button> <button class="btn l" id="cl">ফর্ম খালি করুন</button></p></section>
+</div></div>
+<div id="toast" role="status"></div>
+<script src="config.js"></script>
+<script>
+var API=window.API_URL||'',PW=sessionStorage.getItem('pw')||'',ITEMS=[],EID='',EDATE='';
+var $=function(s){return document.getElementById(s)};
+function esc(s){return String(s==null?'':s).replace(/[&<>"']/g,function(c){return{'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]})}
+function toast(m){var t=$('toast');t.textContent=m;t.style.display='block';clearTimeout(toast.h);toast.h=setTimeout(function(){t.style.display='none'},3200)}
+function call(body){
+  if(!API)return Promise.reject(new Error('config.js ফাইলে API_URL বসানো হয়নি'));
+  body.password=PW;
+  return fetch(API,{method:'POST',headers:{'Content-Type':'text/plain;charset=utf-8'},body:JSON.stringify(body)}).then(function(r){return r.json()}).then(function(j){if(!j.ok)throw new Error(j.error||'সমস্যা হয়েছে');return j});
+}
+function list(){return call({action:'list'}).then(function(j){ITEMS=j.items||[];draw()})}
+function draw(){
+  $('ls').innerHTML=ITEMS.length?ITEMS.map(function(x){return '<div class="it"><span><b>'+esc(x.title)+'</b><span class="tg '+(x.status==='published'?'p':'')+'">'+(x.status==='published'?'প্রকাশিত':'খসড়া')+'</span><small>'+esc(x.category)+'</small></span><span class="a"><button class="btn l" data-e="'+esc(x.id)+'">সম্পাদনা</button><button class="btn d" data-d="'+esc(x.id)+'">মুছুন</button></span></div>'}).join(''):'<p style="padding:14px 0;color:#5d6b78">এখনো কোনো খবর নেই। ডানের ফর্মে প্রথম খবর যোগ করুন।</p>';
+}
+function clr(){EID='';EDATE='';['t','c','a','i','s','b'].forEach(function(k){$(k).value=''});$('st').value='published';$('ft').textContent='নতুন খবর যোগ করুন'}
+function show(){$('lg').classList.add('hid');$('pn').classList.remove('hid')}
+function login(){
+  PW=$('pw').value||PW;$('le').textContent='';$('lb').disabled=true;
+  list().then(function(){sessionStorage.setItem('pw',PW);show()}).catch(function(e){PW='';sessionStorage.removeItem('pw');$('le').textContent=e.message}).then(function(){$('lb').disabled=false});
+}
+$('lb').onclick=login;$('pw').onkeydown=function(e){if(e.key==='Enter')login()};
+$('out').onclick=function(e){e.preventDefault();sessionStorage.removeItem('pw');location.reload()};
+$('nw').onclick=$('cl').onclick=clr;
+$('ls').onclick=function(e){
+  var ed=e.target.getAttribute('data-e'),dl=e.target.getAttribute('data-d');
+  if(ed){var x=ITEMS.filter(function(y){return y.id===ed})[0];if(!x)return;EID=x.id;EDATE=x.date;$('t').value=x.title;$('c').value=x.category;$('a').value=x.author;$('i').value=x.image;$('s').value=x.summary;$('b').value=x.content;$('st').value=x.status||'published';$('ft').textContent='খবর সম্পাদনা করুন';window.scrollTo(0,document.body.scrollHeight>900?0:0)}
+  if(dl&&confirm('এই খবরটি স্থায়ীভাবে মুছে ফেলবেন?'))call({action:'delete',id:dl}).then(function(){toast('খবর মুছে ফেলা হয়েছে');if(EID===dl)clr();return list()}).catch(function(er){toast(er.message)});
+};
+$('sv').onclick=function(){
+  var t=$('t').value.trim(),b=$('b').value.trim();
+  if(!t||!b){toast('শিরোনাম ও বিস্তারিত লিখুন');return}
+  var it={id:EID,title:t,category:$('c').value.trim(),author:$('a').value.trim(),image:$('i').value.trim(),summary:$('s').value.trim(),content:b,status:$('st').value,date:EDATE};
+  $('sv').disabled=true;
+  call({action:'save',item:it}).then(function(){toast('খবর সংরক্ষিত হয়েছে');clr();return list()}).catch(function(e){toast(e.message)}).then(function(){$('sv').disabled=false});
+};
+if(PW&&API)list().then(show).catch(function(){sessionStorage.removeItem('pw')});
+</script>
+</body>
+</html>
